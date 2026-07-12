@@ -5,9 +5,6 @@
 
 # The purpose of this notebook is to apply a Bayesian analysis to Candidemia dataset.
 
-# In[4]:
-
-
 #Import libraries 
 
 import os
@@ -21,9 +18,6 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import (roc_curve, roc_auc_score, 
 confusion_matrix, accuracy_score, 
 f1_score,precision_recall_curve)
-
-
-# In[1]:
 
 
 #Import functions to retrieve data from Google Drive
@@ -40,9 +34,6 @@ for file1 in fileList:
   print('title: %s, id: %s' % (file1['title'], file1['id']))
 
 
-# In[8]:
-
-
 #Get data from Google Drive
 
 #Get the id from CSV file
@@ -54,9 +45,6 @@ file.GetContentFile('data_candidemia.csv')
 df = pd.read_csv('data_candidemia.csv', engine='python')
 #Print the first row
 df.head(1)
-
-
-# In[10]:
 
 
 #Prepare the data
@@ -107,9 +95,6 @@ data.loc[0:3,['Gender', 'ICU']]
 
 # In the last notebook we plot and check correlation among the features, on this notebook we are gonna jump straight to extract the relevant features.
 
-# In[9]:
-
-
 #Features that correlate with ICU status
 data.drop(['Time in ICU', 'ICU'],axis=1).corrwith(data.ICU).sort_values(ascending=True).plot(kind= 'barh', figsize=(20,9))
 plt.title('Correlation with ICU')
@@ -119,10 +104,8 @@ plt.show()
 data.drop(['Time in ICU', 'ICU'],axis=1).corrwith(data.ICU).sort_values(ascending=True)
 
 
-# As we can see on the outcomes, most of the features are weakly correlated with ICU status. To extract the relevant features we are gonna consider the ones with a positive correlation equal or higher than 0.1 and for negative correlation equal or smaller than -0.1.
-
-# In[12]:
-
+# As we can see on the outcomes, most of the features are weakly correlated with ICU status. 
+# To extract the relevant features we are gonna consider the ones with a positive correlation equal or higher than 0.1 and for negative correlation equal or smaller than -0.1.
 
 #Extract relevant features
 
@@ -135,8 +118,6 @@ relevant_feat.sort_values(ascending=True)
 
 
 # # Variance Inflation Factor (VIF)
-
-# In[12]:
 
 
 #Let's create the function to apply VIF
@@ -189,17 +170,13 @@ calculate_vif(data=data, features=relevant_feat.drop(['ICU'], axis=0).index)
 # - **Catheter Removed in the First 3 Days of Candidemia**
 
 # ### Antifungal Response - FAILURE Case
-# 
-# Taking into account the last notebook where a classic Logistic Regression was applied, on that notebook we can notice that Antifungal Response - FAILURE has a problem with *quase-complete separation*, because of that this feature it's gonna be removed from all studies. Here is the crosstab that validates this information.
 
-# In[149]:
+# Taking into account the last notebook where a classic Logistic Regression was applied, on that notebook we can notice that Antifungal Response - FAILURE has a problem with *quase-complete separation*, because of that this feature it's gonna be removed from all studies. Here is the crosstab that validates this information.
 
 
 #Crosstab Antifungal Response - FAILURE vs ICU status
 pd.crosstab(data['Antifungal Response - FAILURE'],data.ICU)
 
-
-# In[14]:
 
 
 #Fit a Logistic Regression with a Bayesian approach
@@ -265,24 +242,15 @@ with pm.Model() as relevant_feat_model:
     pm.Bernoulli('ICU Admissions', p, observed=data.ICU)
 
 
-# In[16]:
-
-
 #Sampling
 with relevant_feat_model:
     idata= pm.sample(draws= 2000, tune= 1000, target_accept=0.95, random_seed=42, idata_kwargs={'log_likelihood':True})
 sum = az.summary(idata)
 
 
-# In[18]:
-
 
 #Print the summary
 sum.iloc[0:29,:]
-
-
-# In[38]:
-
 
 #Relevant findings
 relevant_ind=[]
@@ -290,9 +258,6 @@ for i in sum.index[0:29]:
     if not (sum.loc[i,'hdi_3%'] < 0) & (sum.loc[i,'hdi_97%'] > 0):
         relevant_ind.append(i)
 sum.loc[relevant_ind,:]
-
-
-# In[99]:
 
 
 #Find the Posterior Odds Ratio
@@ -343,8 +308,6 @@ copy
 # The entire HDI lies above zero, indicating strong posterior evidence that septic shock with amine support is associated with a materially higher risk of ICU transfer in the paediatric candidemia cohort.
 # 
 
-# In[167]:
-
 
 trace= az.plot_trace(idata,compact=False)
 
@@ -354,8 +317,6 @@ trace= az.plot_trace(idata,compact=False)
 # # Evaluation of the model
 
 # ### Posterior Predictive Check (PPC)
-
-# In[28]:
 
 
 #Sample PPC
@@ -405,8 +366,6 @@ az.plot_separation(idata=ppc, y="ICU Admissions",figsize=(12,1))
 # 
 # According with the literature, an observation is considered influental when its K_hat parameter or pareto parameter is bigger than 0.7.
 
-# In[16]:
-
 
 # compute pointwise LOO
 loo = az.loo(idata)
@@ -416,8 +375,6 @@ az.plot_khat(loo.pareto_k)#, show_bins=True)
 
 
 # As we can notice on the K_hat plot, all the observations are under 0.7, so we can claim there is no influential obersvations that could influence the model. There is only one point above 0.5, lets find that patient.
-
-# In[18]:
 
 
 #Find the subject with the highest influential observation
@@ -493,8 +450,6 @@ for x,y in zip(influential_obs, y):
 
 # ### Forest Plot
 
-# In[45]:
-
 
 #Graph the Forest plot
 az.plot_forest(idata, combined=True, colors= 'slategray', var_names=sum.index[0:29], figsize=(6,9))
@@ -505,8 +460,6 @@ plt.savefig('FRB_relevant.jpg',bbox_inches='tight')
 # The forest plot confirms the outcomes from the summary table, here we can see that the only features associated with ICU admissions are *Mechanical Ventilation* and *Septic Shock*, they both increase the odds of ICU admission.
 
 # ### Confussion matrix
-
-# In[89]:
 
 
 #Import library
@@ -543,7 +496,6 @@ print(f'AUC = {roc_auc_score(**pred_scores):.4f}')
 
 # In this section, the same Bayesian analysis its gonna be applied to the same dataset but this time containing all the features. To avoid any problem while fitting the model a few dummy variables are gonna be taken as references, and as well as with the first model, the dummy variable *Antifungal Response - Failure* it's not gonnna be considered to avoid any separation problems.
 
-# In[138]:
 
 
 #Let's take a look on the features that weren't consider on the first model
@@ -564,7 +516,6 @@ for i in data.columns:
 # - **Catheter Removed in the First 3 Days of Candidemia - Unknown**
 # - **Antifungal Response - FAILURE**
 
-# In[101]:
 
 
 #Fit a Logistic Regression with a Bayesian approach
